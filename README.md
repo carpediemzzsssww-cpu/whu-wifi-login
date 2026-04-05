@@ -105,10 +105,11 @@ cat ~/.whu-wifi-login.log
 ### 工作原理
 
 1. 通过 `ipconfig getsummary en0` 检测当前是否连接 WHU-STU / WHU-STU-5G
-2. 通过 `curl --interface en0` 绕过 VPN，直接走 WiFi 接口发送 HTTP 204 检测
-3. 如果未认证，从门户重定向中提取 `queryString` 认证参数
+2. 通过 `curl --interface en0 --noproxy '*'` 绕过 VPN 代理和路由，直接走 WiFi 接口发送 HTTP 204 检测
+3. 如果未认证，优先用 WiFi 接口 IP 直接构造 `queryString`（不依赖重定向），备选从门户重定向提取
 4. 向锐捷 ePortal（`172.19.1.9:8080`）发送 POST 登录请求
-5. 由 macOS launchd 每 30 秒调度，网络变化时也会立即触发
+5. 遇到「设备未注册」时自动等待网关同步后重试，唤醒后等待 DHCP 分配完成
+6. 由 macOS launchd 每 30 秒调度，网络变化时也会立即触发
 
 ### 技术细节
 
@@ -227,10 +228,11 @@ You can also create an iOS Shortcut:
 ### How It Works
 
 1. Detects WiFi SSID via `ipconfig getsummary en0`
-2. Checks authentication by sending HTTP 204 probe through WiFi interface (`curl --interface en0`), bypassing VPN
-3. If unauthenticated, extracts `queryString` from the portal redirect
+2. Checks auth via HTTP 204 probe through WiFi interface (`curl --interface en0 --noproxy '*'`), fully bypassing VPN proxy and routing
+3. If unauthenticated, constructs `queryString` directly from the WiFi interface IP (no redirect needed), with portal redirect as fallback
 4. Sends POST login request to Ruijie ePortal (`172.19.1.9:8080`)
-5. Scheduled by macOS launchd every 30 seconds, also triggers on network changes
+5. Handles "device not registered" errors by waiting for gateway sync and retrying; waits for DHCP after wake
+6. Scheduled by macOS launchd every 30 seconds, also triggers on network changes
 
 ### Technical Details
 
